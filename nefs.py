@@ -1,35 +1,52 @@
 import pandas as pd
 import ta
 import matplotlib.pyplot as plt
+from matplotlib.widgets import CheckButtons
 
-# Load the stock data into a pandas DataFrame
-df = pd.read_csv('stock_data.csv')
+# Download data
+data = pd.read_csv('stock_data.csv')
+data['Date'] = pd.to_datetime(data['Date']) # convert date column to datetime format
 
+# Calculate the simple moving average and standard deviation with a rolling window
+data['SMA'] = data['Close'].rolling(window=20).mean()
+data['STDDEV'] = data['Close'].rolling(window=20).std()
 
-# calculate 20-day SMA and 50-day SMA
-df['SMA20'] = ta.trend.sma_indicator(df['Close'], window=20)
-df['SMA50'] = ta.trend.sma_indicator(df['Close'], window=50)
+# Calculate the upper and lower bands using the 95% confidence interval
+data['Upper_Band'] = data['SMA'] + 1.96 * data['STDDEV']
+data['Lower_Band'] = data['SMA'] - 1.96 * data['STDDEV']
 
-# calculate 12-day EMA and 26-day EMA
-df['EMA12'] = ta.trend.ema_indicator(df['Close'], window=12)
-df['EMA26'] = ta.trend.ema_indicator(df['Close'], window=26)
+# Create the plot and add lines
+fig, ax = plt.subplots(figsize=(10,5))
+sma_line, = ax.plot(data['Date'], data['SMA'], label='SMA')
+ub_line, = ax.plot(data['Date'], data['Upper_Band'], label='Upper Band')
+lb_line, = ax.plot(data['Date'], data['Lower_Band'], label='Lower Band')
+close_line, = ax.plot(data['Date'], data['Close'], label='Close')
 
-# calculate 14-day RSI
-df['RSI14'] = ta.momentum.rsi(df['Close'], window=14)
+# Set up the checkbutton widget
+rax = plt.axes([0.01, 0.9, 0.1, 0.1])
+check = CheckButtons(rax, ('Close','SMA', 'Upper Band', 'Lower Band'), (True, True, True, True))
 
-# Calculate the MACD and signal lines using the signal() function
-df['MACD'] = ta.trend.macd_diff(df['Close'], window_slow=26, window_fast=12)
-df['Signal'] = ta.trend.macd_signal(df['Close'], window_slow=26, window_fast=12, window_sign=9)
+# Define the callback function to toggle the display of the lines
+def func(label):
+    if label == 'Close':
+        close_line.set_visible(not close_line.get_visible())
+    elif label == 'SMA':
+        sma_line.set_visible(not sma_line.get_visible())
+    elif label == 'Upper Band':
+        ub_line.set_visible(not ub_line.get_visible())
+    elif label == 'Lower Band':
+        lb_line.set_visible(not lb_line.get_visible())
+    plt.draw()
 
-# print the DataFrame with SMA, EMA, RSI, and MACD indicators
-print(df)
+# Register the callback function with the checkbutton
+check.on_clicked(func)
 
+# Add plot details
+ax.legend(loc='upper left')
+ax.set_xlabel('Date')
+ax.set_ylabel('Price')
+ax.set_title('Bollinger Bands')
+plt.xticks(rotation=45) # rotate x-axis labels for better visibility
 
-# Create a line plot of the MACD and signal lines
-plt.plot(df['Date'], df['MACD'], label='MACD')
-plt.plot(df['Date'], df['Signal'], label='Signal')
-plt.legend()
-plt.xlabel('Date')
-plt.ylabel('MACD/Signal')
-plt.title('MACD and Signal Lines')
+# Show the plot
 plt.show()
